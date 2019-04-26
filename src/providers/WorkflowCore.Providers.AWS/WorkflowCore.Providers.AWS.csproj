@@ -2,9 +2,11 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Authors>Daniel Gerlag</Authors>
-    <Description>AWS providers for Workflow Core
+    <DisableImplicitAssetTargetFallback>true</DisableImplicitAssetTargetFallback>
+    <NetStandardImplicitPackageVersion>2.0.0</NetStandardImplicitPackageVersion>
 
+    <Authors>Daniel Gerlag</Authors>
+    <Description>AWS providers for Workflow Core\
 - Provides Queueing support on Workflow Core
 - Provides distributed locking support on Workflow Core</Description>
     <PackageLicenseUrl>https://github.com/danielgerlag/workflow-core/blob/master/LICENSE.md</PackageLicenseUrl>
