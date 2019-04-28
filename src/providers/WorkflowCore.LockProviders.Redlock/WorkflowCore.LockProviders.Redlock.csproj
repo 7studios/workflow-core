@@ -38,7 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="StackExchange.Redis" Version="1.1.608" />
+    <PackageReference Include="StackExchange.Redis" Version="2.0.601" />
     <PackageReference Include="RedLock.net" Version="2.0.0" />
   </ItemGroup>
 

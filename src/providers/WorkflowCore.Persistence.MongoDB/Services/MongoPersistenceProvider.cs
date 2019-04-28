@@ -8,6 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+
+using Microsoft.EntityFrameworkCore;
+
 using WorkflowCore.Interface;
 using WorkflowCore.Models;
 
@@ -16,11 +19,27 @@ namespace WorkflowCore.Persistence.MongoDB.Services
     public class MongoPersistenceProvider : IPersistenceProvider
     {
         private readonly IMongoDatabase _database;
+        private readonly Lazy<Task> indexes;
 
         public MongoPersistenceProvider(IMongoDatabase database)
         {
             _database = database;
-            CreateIndexes(this);
+
+            //** Run once and only once
+            indexes = new Lazy<Task>(async () => { await CreateIndexesAsync(this); });
+        }
+
+        private static async Task CreateIndexesAsync(MongoPersistenceProvider instance)
+        {
+            var indexOptions = new CreateIndexOptions() { Background = true, Name = "idx_nextExec" };
+            var indexKeys = Builders<WorkflowInstance>.IndexKeys.Ascending(x => x.NextExecution);
+            var indexModel = new CreateIndexModel<WorkflowInstance>(indexKeys, indexOptions);
+            await instance.WorkflowInstances.Indexes.CreateOneAsync(indexModel);
+
+            var indexEvOptions = new CreateIndexOptions() { Background = true, Name = "idx_processed" };
+            var indexEvKeys = Builders<Event>.IndexKeys.Ascending(x => x.IsProcessed);
+            var indexEvModel = new CreateIndexModel<Event>(indexEvKeys, indexEvOptions);
+            await instance.Events.Indexes.CreateOneAsync(indexEvModel);
         }
 
         static MongoPersistenceProvider()
@@ -68,13 +87,24 @@ namespace WorkflowCore.Persistence.MongoDB.Services
             BsonClassMap.RegisterClassMap<SchedulePersistenceData>(x => x.AutoMap());
         }
 
+        /// <summary>
+        /// Should be async?
+        /// </summary>
         static bool indexesCreated = false;
         static void CreateIndexes(MongoPersistenceProvider instance)
         {
             if (!indexesCreated)
             {
-                instance.WorkflowInstances.Indexes.CreateOne(Builders<WorkflowInstance>.IndexKeys.Ascending(x => x.NextExecution), new CreateIndexOptions() { Background = true, Name = "idx_nextExec" });
-                instance.Events.Indexes.CreateOne(Builders<Event>.IndexKeys.Ascending(x => x.IsProcessed), new CreateIndexOptions() { Background = true, Name = "idx_processed" });
+                var indexOptions = new CreateIndexOptions() { Background = true, Name = "idx_nextExec" };
+                var indexKeys = Builders<WorkflowInstance>.IndexKeys.Ascending(x => x.NextExecution);
+                var indexModel = new CreateIndexModel<WorkflowInstance>(indexKeys, indexOptions);
+                instance.WorkflowInstances.Indexes.CreateOne(indexModel);
+
+                var indexEvOptions = new CreateIndexOptions() { Background = true, Name = "idx_processed" };
+                var indexEvKeys = Builders<Event>.IndexKeys.Ascending(x => x.IsProcessed);
+                var indexEvModel = new CreateIndexModel<Event>(indexEvKeys, indexEvOptions);
+                instance.Events.Indexes.CreateOne(indexEvModel);
+
                 indexesCreated = true;
             }
         }
@@ -141,7 +171,10 @@ namespace WorkflowCore.Persistence.MongoDB.Services
             if (createdTo.HasValue)
                 result = result.Where(x => x.CreateTime <= createdTo.Value);
 
-            return result.Skip(skip).Take(take).ToList();
+            return await result
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync();
         }
 
         public async Task<string> CreateEventSubscription(EventSubscription subscription)

@@ -134,11 +134,13 @@ namespace WorkflowCore.LockProviders.SqlServer
         }
 
         public async Task Start()
-        {         
+        {
+            await Task.Delay(1);
         }
 
         public async Task Stop()
         {
+            await Task.Delay(1);
         }
     }
 }

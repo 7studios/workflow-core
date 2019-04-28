@@ -1,6 +1,7 @@
 ﻿#region using
 
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
@@ -92,7 +93,7 @@ namespace WorkflowCore.QueueProviders.SqlServer.Services
             SqlConnection cn = new SqlConnection(_connectionString);
             try
             {
-                cn.Open();
+                await cn.OpenAsync();
                 var par = _config.GetByQueue(queue);
 
                 _sqlCommandExecutor.ExecuteCommand(cn, null, _queueWorkCommand,
@@ -109,6 +110,40 @@ namespace WorkflowCore.QueueProviders.SqlServer.Services
             }
         }
 
+
+        /// <summary>
+        /// Queues the work async.
+        /// </summary>
+        /// <returns>The work async.</returns>
+        /// <param name="id">Identifier.</param>
+        /// <param name="queue">Queue.</param>
+        public async Task QueueWorkAsync(String id, QueueType queue)
+        {
+            if (string.IsNullOrEmpty(id))
+                throw new ArgumentNullException(nameof(id), "Param id must not be null");
+                
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                SqlCommand command = new SqlCommand(_queueWorkCommand, connection);
+                await command.Connection.OpenAsync();
+
+                var par = _config.GetByQueue(queue);
+
+                List<SqlParameter> p = new List<SqlParameter>(5)
+                {
+                    new SqlParameter("@initiatorService", par.InitiatorService),
+                    new SqlParameter("@targetService", par.TargetService),
+                    new SqlParameter("@contractName", par.ContractName),
+                    new SqlParameter("@msgType", par.MsgType),
+                    new SqlParameter("@RequestMessage", id)
+                };
+
+                command.Parameters.AddRange(p.ToArray());
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+
+
         /// <inheritdoc />
         /// <summary>
         /// Get an id from the specified queue.
@@ -121,12 +156,12 @@ namespace WorkflowCore.QueueProviders.SqlServer.Services
             SqlConnection cn = new SqlConnection(_connectionString);
             try
             {
-                cn.Open();
-                var par = _config.GetByQueue(queue);                
+                await cn.OpenAsync();
+                var par = _config.GetByQueue(queue);
+
                 var sql = _dequeueWorkCommand.Replace("{queueName}", par.QueueName);
                 var msg = _sqlCommandExecutor.ExecuteScalar<object>(cn, null, sql);
                 return msg is DBNull ? null : (string)msg;
-                
             }
             finally
             {
